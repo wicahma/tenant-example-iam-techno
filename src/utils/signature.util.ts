@@ -61,6 +61,24 @@ function buildCanonicalString(
 }
 
 /**
+ * Normalize the raw RSA_PRIVATE_KEY env value into a PEM string.
+ *
+ * Supports three formats:
+ *  1. PEM with literal `\n` escapes (single-line .env, see .env.example)
+ *  2. PEM with real newlines
+ *  3. Base64-encoded PEM (as printed by the backend seeder TenantExampleSeeder)
+ */
+function normalizePrivateKey(rawKey: string): string {
+  // Formats 1 & 2: PEM with \n escapes or real newlines
+  let pem = rawKey.replace(/\\n/g, "\n").trim();
+  if (!pem.includes("-----BEGIN")) {
+    // Format 3: base64-encoded PEM → decode to PEM text
+    pem = Buffer.from(rawKey.trim(), "base64").toString("utf8");
+  }
+  return pem.trim();
+}
+
+/**
  * Sign a canonical string with RSA-PSS + SHA-256 (PS256).
  */
 function signWithRsa(privateKeyPem: string, canonicalString: string): string {
@@ -93,6 +111,7 @@ export async function generateTenantHeaders(
   queryString?: string,
 ): Promise<ITenantHeaders> {
   const resolvedEnv = await env();
+  console.log("Resolved Env:", resolvedEnv);
   const {
     APP_IDENTIFIER,
     API_KEY,
@@ -141,7 +160,7 @@ export async function generateTenantHeaders(
         "RSA_PRIVATE_KEY is required when BYPASS_TENANT_VERIFICATION is not enabled",
       );
     }
-    const privateKey = RSA_PRIVATE_KEY.replace(/\\n/g, "\n");
+    const privateKey = normalizePrivateKey(RSA_PRIVATE_KEY);
     signature = signWithRsa(privateKey, canonicalString);
   }
 

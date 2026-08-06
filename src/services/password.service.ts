@@ -16,7 +16,7 @@ import {
 
 const BASE = "/public";
 
-// ── POST /public/me/change-password ───────────────────
+// POST /public/me/change-password
 
 export const apiChangePassword = async (
   body: IChangePasswordRequest,
@@ -28,7 +28,7 @@ export const apiChangePassword = async (
   return res.data;
 };
 
-// ── POST /public/reset-password ───────────────────────
+// POST /public/reset-password
 
 export const apiSendResetPassword = async (
   body: ISendResetRequest,
@@ -50,8 +50,7 @@ export const apiSendResetPassword = async (
   return res.data;
 };
 
-// ── POST /public/reset-password/validate ──────────────
-
+// POST /public/reset-password/validate
 export const apiValidateOtp = async (
   body: IValidateOtpRequest,
   provider: Extract<TResetProvider, "sms" | "email-otp">,
@@ -66,7 +65,7 @@ export const apiValidateOtp = async (
   return res.data;
 };
 
-// ── POST /public/reset-password/reset ─────────────────
+// POST /public/reset-password/reset
 
 export const apiCompleteReset = async (
   body: ICompleteResetRequest,

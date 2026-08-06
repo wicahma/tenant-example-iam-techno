@@ -22,8 +22,13 @@ function ResetContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Override the token in the hook state
-    const success = await completeReset(newPassword, reNewPassword);
+    // Pass the token from the URL / input into the API call (the hook instance
+    // on this page has its own empty state, so its passwordToken can't be used).
+    const success = await completeReset(
+      newPassword,
+      reNewPassword,
+      passwordToken,
+    );
     if (success) {
       setTimeout(() => router.push("/login"), 2000);
     }

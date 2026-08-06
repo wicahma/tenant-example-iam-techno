@@ -6,7 +6,6 @@ import { getToken, setToken, clearToken } from "@/utils/cookie.util";
 import { generateTenantHeaders } from "@/utils/signature.util";
 import { ITokens } from "@/types/auth.types";
 
-// ── Token refresh queue (prevents concurrent refresh) ──
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value: unknown) => void;
@@ -25,22 +24,17 @@ const processQueue = (error: unknown = null) => {
   failedQueue = [];
 };
 
-// ── Public API client (tenant-verified endpoints) ─────
-
 export const publicClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Request interceptor: add tenant headers + Bearer token
 publicClient.interceptors.request.use(async (config) => {
   const resolvedEnv = await env();
 
-  // Set base URL
   config.baseURL = resolvedEnv.APP.API_URL;
 
-  // Add tenant verification headers
   try {
     const method = config.method?.toUpperCase() || "GET";
     const path = config.url || "/";
@@ -56,17 +50,15 @@ publicClient.interceptors.request.use(async (config) => {
       queryString,
     );
 
-    // Merge tenant headers into request
     for (const [key, value] of Object.entries(tenantHeaders)) {
       config.headers[key] = value;
     }
   } catch (err) {
-    // If bypass is enabled, continue without tenant headers
     console.warn("Tenant header generation failed:", err);
   }
 
-  // Add Bearer token from cookie (if available)
   const token = await getToken();
+  console.log("Token from cookie:", token);
   if (token?.accessToken) {
     config.headers.Authorization = `Bearer ${token.accessToken}`;
   }
@@ -74,9 +66,15 @@ publicClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response interceptor: handle 401 → refresh token
 publicClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.group("Response Interceptor");
+    console.log("Response status:", response.statusText);
+    console.log("Response body:", response.data);
+    console.groupEnd();
+
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
@@ -86,7 +84,6 @@ publicClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Don't refresh for login/logout/refresh/validate endpoints
     const url = originalRequest.url || "";
     const skipRefreshPaths = [
       "/public/manual/login",
@@ -140,10 +137,8 @@ publicClient.interceptors.response.use(
         };
         await setToken(newTokens);
 
-        // Retry queued requests with new token
         processQueue(null);
 
-        // Retry original request
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
         }
@@ -162,8 +157,6 @@ publicClient.interceptors.response.use(
     }
   },
 );
-
-// ── OAuth / public client (no tenant headers) ─────────
 
 export const oauthClient = axios.create({
   headers: {

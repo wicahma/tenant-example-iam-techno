@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { IUserDetail, IUpdateProfileRequest } from "@/types/auth.types";
+import { apiGetMe, apiUpdateProfile } from "@/services/profile.service";
 
 interface UseProfileReturn {
   profile: IUserDetail | null;
@@ -21,11 +22,10 @@ export const useProfile = (): UseProfileReturn => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/public/me");
-      const data = await res.json();
+      const data = await apiGetMe();
 
       if (data.status) {
-        setProfile(data.data);
+        setProfile(data.data ?? null);
       } else {
         setError(data.message || "Failed to load profile");
       }
@@ -39,12 +39,7 @@ export const useProfile = (): UseProfileReturn => {
   const updateProfile = useCallback(
     async (body: IUpdateProfileRequest): Promise<boolean> => {
       try {
-        const res = await fetch("/api/public/me", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
+        const data = await apiUpdateProfile(body);
 
         if (data.status) {
           toast.success("Profile updated");

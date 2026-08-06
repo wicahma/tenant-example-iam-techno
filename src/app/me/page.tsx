@@ -8,6 +8,8 @@ import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { PageSpinner } from "@/components/ui/Spinner";
 import { useProfile } from "@/hooks/useProfile";
+import { apiChangePassword } from "@/services/password.service";
+import { apiLogout } from "@/services/auth.service";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -48,16 +50,11 @@ export default function ProfilePage() {
 
     setChangingPwd(true);
     try {
-      const res = await fetch("/api/public/me/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          currentPassword: currentPwd,
-          newPassword: newPwd,
-          confirmNewPassword: confirmPwd,
-        }),
+      const data = await apiChangePassword({
+        currentPassword: currentPwd,
+        newPassword: newPwd,
+        confirmNewPassword: confirmPwd,
       });
-      const data = await res.json();
       if (data.status) {
         alert("Password changed successfully!");
         setShowChangePwd(false);
@@ -75,7 +72,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/public/logout", { method: "POST" });
+    await apiLogout();
     router.push("/login");
   };
 

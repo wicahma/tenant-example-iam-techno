@@ -1,5 +1,3 @@
-// ── Change Password ───────────────────────────────────
-
 export interface IChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
@@ -10,8 +8,6 @@ export interface IChangePasswordResponse {
   message: string;
 }
 
-// ── Reset Password Providers ──────────────────────────
-
 export type TResetProvider = "email" | "sms" | "email-otp";
 
 export enum EResetStep {
@@ -20,8 +16,6 @@ export enum EResetStep {
   Reset = 2,
   Success = 3,
 }
-
-// ── Send Reset ────────────────────────────────────────
 
 export interface ISendResetRequest {
   identifier: string;
@@ -51,8 +45,6 @@ export type TSendResetResponse =
   | ISendResetSmsResponse
   | ISendResetEmailOtpResponse;
 
-// ── Validate OTP ──────────────────────────────────────
-
 export interface IValidateOtpRequest {
   identifier: string;
   otpCode: string;
@@ -63,8 +55,6 @@ export interface IValidateOtpResponse {
   passwordToken: string;
   tokenExpiresInMinutes: number;
 }
-
-// ── Complete Reset ────────────────────────────────────
 
 export interface ICompleteResetRequest {
   passwordToken: string;

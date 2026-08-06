@@ -29,10 +29,11 @@ function ValidateOtpContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await validateOtp(otpCode);
-    if (success) {
+    const passwordToken = await validateOtp(otpCode);
+    console.log("Validate OTP PasswordToken:", passwordToken);
+    if (passwordToken) {
       router.push(
-        `/reset-password/reset?token=${encodeURIComponent(state.passwordToken)}&provider=${provider}`,
+        `/reset-password/reset?token=${encodeURIComponent(passwordToken)}&provider=${provider}`,
       );
     }
   };

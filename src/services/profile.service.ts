@@ -11,8 +11,7 @@ import {
 
 const BASE = "/public";
 
-// ── GET /public/me ────────────────────────────────────
-
+// GET /public/me
 export const apiGetMe = async (): Promise<APIBaseResponse<IUserDetail>> => {
   const res = await publicClient.get<APIBaseResponse<IUserDetail>>(
     `${BASE}/me`,
@@ -20,8 +19,7 @@ export const apiGetMe = async (): Promise<APIBaseResponse<IUserDetail>> => {
   return res.data;
 };
 
-// ── GET /public/me/profile ────────────────────────────
-
+// GET /public/me/profile
 export const apiGetProfile = async (): Promise<
   APIBaseResponse<IUserProfile>
 > => {
@@ -31,8 +29,7 @@ export const apiGetProfile = async (): Promise<
   return res.data;
 };
 
-// ── PUT /public/me ────────────────────────────────────
-
+// PUT /public/me
 export const apiUpdateProfile = async (
   body: IUpdateProfileRequest,
 ): Promise<APIBaseResponse<IUpdateProfileResponse>> => {

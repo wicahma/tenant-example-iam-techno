@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
+import { apiHealthCheck } from "@/services/health.service";
 
 interface HealthStatus {
   status: string;
@@ -43,10 +44,10 @@ const endpointCards = [
   },
   {
     title: "OAuth 2.0 / OIDC",
-    href: "/oauth-demo",
+    href: "/oauth",
     desc: "Authorization code flow with PKCE. Discovery, token exchange, userinfo, and revoke.",
     method: "GET/POST",
-    path: "/oauth/*",
+    path: "/public/oauth/*",
   },
 ];
 
@@ -55,8 +56,7 @@ export default function HomePage() {
   const [healthLoading, setHealthLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
+    apiHealthCheck()
       .then((d) => {
         setHealth(d);
         setHealthLoading(false);
@@ -133,11 +133,11 @@ export default function HomePage() {
             "POST /public/reset-password",
             "POST /public/reset-password/validate",
             "POST /public/reset-password/reset",
-            "GET /oauth/authorize",
-            "POST /oauth/token",
-            "GET /oauth/userinfo",
+            "GET /public/oauth/authorize",
+            "POST /public/oauth/token",
+            "GET /public/oauth/userinfo",
             "GET /.well-known/openid-configuration",
-            "POST /oauth/revoke",
+            "POST /public/oauth/revoke",
           ].map((ep) => (
             <div key={ep} className="flex items-center gap-2 text-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-green-500" />

@@ -1,5 +1,3 @@
-// ── User List (GET /public/users) ─────────────────────
-
 export interface IGetUsersParams {
   page?: number;
   limit?: number;

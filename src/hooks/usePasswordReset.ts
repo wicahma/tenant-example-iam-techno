@@ -2,7 +2,16 @@
 
 import { useState, useCallback } from "react";
 import toast from "react-hot-toast";
-import { TResetProvider, EResetStep } from "@/types/password.types";
+import {
+  TResetProvider,
+  EResetStep,
+  ISendResetSmsResponse,
+} from "@/types/password.types";
+import {
+  apiSendResetPassword,
+  apiValidateOtp,
+  apiCompleteReset,
+} from "@/services/password.service";
 
 interface ResetState {
   step: EResetStep;
@@ -20,10 +29,11 @@ interface UsePasswordResetReturn {
   setProvider: (p: TResetProvider) => void;
   setIdentifier: (id: string) => void;
   sendReset: () => Promise<boolean>;
-  validateOtp: (otpCode: string) => Promise<boolean>;
+  validateOtp: (otpCode: string) => Promise<string | null>;
   completeReset: (
     newPassword: string,
     reNewPassword: string,
+    passwordToken?: string,
   ) => Promise<boolean>;
   loading: boolean;
   reset: () => void;
@@ -51,15 +61,10 @@ export const usePasswordReset = (): UsePasswordResetReturn => {
   const sendReset = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     try {
-      const res = await fetch("/api/public/reset-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-reset-provider": state.provider,
-        },
-        body: JSON.stringify({ identifier: state.identifier }),
-      });
-      const data = await res.json();
+      const data = await apiSendResetPassword(
+        { identifier: state.identifier },
+        state.provider,
+      );
 
       if (data.status) {
         if (state.provider === "email") {
@@ -72,13 +77,14 @@ export const usePasswordReset = (): UsePasswordResetReturn => {
           }));
         } else {
           toast.success(data.data?.message || "OTP sent");
+          const resetData = data.data as ISendResetSmsResponse | undefined;
           setState((s) => ({
             ...s,
             step: EResetStep.Validate,
-            maskedOtp: data.data?.maskedOtp,
-            expiresInMinutes: data.data?.expiresInMinutes,
-            currentAttempts: data.data?.currentAttempts,
-            maxAttempts: data.data?.maxAttempts,
+            maskedOtp: resetData?.maskedOtp,
+            expiresInMinutes: resetData?.expiresInMinutes,
+            currentAttempts: resetData?.currentAttempts,
+            maxAttempts: resetData?.maxAttempts,
           }));
         }
         return true;
@@ -95,38 +101,39 @@ export const usePasswordReset = (): UsePasswordResetReturn => {
   }, [state.provider, state.identifier]);
 
   const validateOtp = useCallback(
-    async (otpCode: string): Promise<boolean> => {
+    async (otpCode: string): Promise<string | null> => {
       setLoading(true);
       try {
         const provider = state.provider as Extract<
           TResetProvider,
           "sms" | "email-otp"
         >;
-        const res = await fetch("/api/public/reset-password/validate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-reset-provider": provider,
-          },
-          body: JSON.stringify({ identifier: state.identifier, otpCode }),
-        });
-        const data = await res.json();
+        const data = await apiValidateOtp(
+          { identifier: state.identifier, otpCode },
+          provider,
+        );
+
+        console.log("Validate OTP Response:", data);
+        console.log("Password Token:", data.data?.passwordToken);
 
         if (data.status) {
           toast.success("OTP validated");
+          // Return the token directly — React state updates are async, so the
+          // caller can't read `state.passwordToken` immediately after `await`.
+          const token = data.data?.passwordToken || "";
           setState((s) => ({
             ...s,
             step: EResetStep.Reset,
-            passwordToken: data.data?.passwordToken || "",
+            passwordToken: token,
           }));
-          return true;
+          return token || null;
         } else {
           toast.error(data.message || "Invalid OTP");
-          return false;
+          return null;
         }
       } catch {
         toast.error("Network error");
-        return false;
+        return null;
       } finally {
         setLoading(false);
       }
@@ -135,22 +142,23 @@ export const usePasswordReset = (): UsePasswordResetReturn => {
   );
 
   const completeReset = useCallback(
-    async (newPassword: string, reNewPassword: string): Promise<boolean> => {
+    async (
+      newPassword: string,
+      reNewPassword: string,
+      passwordToken?: string,
+    ): Promise<boolean> => {
       setLoading(true);
       try {
-        const res = await fetch("/api/public/reset-password/reset", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-reset-provider": state.provider,
-          },
-          body: JSON.stringify({
-            passwordToken: state.passwordToken,
+        const data = await apiCompleteReset(
+          {
+            // Prefer the explicit token (e.g., from the URL/input on the reset
+            // page) over hook state, which is a separate hook instance there.
+            passwordToken: passwordToken ?? state.passwordToken,
             newPassword,
             reNewPassword,
-          }),
-        });
-        const data = await res.json();
+          },
+          state.provider,
+        );
 
         if (data.status) {
           toast.success("Password reset successfully");

@@ -5,31 +5,35 @@ import { APIBaseResponse } from "@/types/api.types";
 import {
   IOAuthAuthorizeParams,
   IOAuthAuthorizeResponse,
+  IOAuthAuthorizeResult,
   IOAuthTokenRequest,
   IOAuthTokenResponse,
   IOAuthUserInfoResponse,
   IOIDCDiscoveryResponse,
 } from "@/types/oauth.types";
 
-// ── GET /oauth/authorize ──────────────────────────────
+const BASE = "/public";
+// GET /public/oauth/authorize
 
 export const apiOAuthAuthorize = async (
   params: IOAuthAuthorizeParams,
-): Promise<APIBaseResponse<IOAuthAuthorizeResponse>> => {
-  // The authorize endpoint redirects (302), so we need to capture the redirect
-  // by using maxRedirects: 0
+): Promise<IOAuthAuthorizeResult> => {
   const res = await oauthClient.get<APIBaseResponse<IOAuthAuthorizeResponse>>(
-    "/oauth/authorize",
+    `${BASE}/oauth/authorize`,
     {
       params,
       maxRedirects: 0,
       validateStatus: (status) => status === 200 || status === 302,
     },
   );
-  return res.data;
+  return {
+    status: res.status,
+    location: res.headers.location as string | undefined,
+    data: res.data,
+  };
 };
 
-// ── POST /oauth/token ─────────────────────────────────
+//  POST /public/oauth/token
 
 export const apiOAuthToken = async (
   body: IOAuthTokenRequest,
@@ -44,7 +48,7 @@ export const apiOAuthToken = async (
   if (body.scope) params.append("scope", body.scope);
 
   const res = await oauthClient.post<APIBaseResponse<IOAuthTokenResponse>>(
-    "/oauth/token",
+    `${BASE}/oauth/token`,
     params.toString(),
     {
       headers: {
@@ -55,13 +59,13 @@ export const apiOAuthToken = async (
   return res.data;
 };
 
-// ── GET /oauth/userinfo ───────────────────────────────
+//  GET /public/oauth/userinfo
 
 export const apiOAuthUserInfo = async (
   accessToken: string,
 ): Promise<APIBaseResponse<IOAuthUserInfoResponse>> => {
   const res = await oauthClient.get<APIBaseResponse<IOAuthUserInfoResponse>>(
-    "/oauth/userinfo",
+    `${BASE}/oauth/userinfo`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -71,18 +75,18 @@ export const apiOAuthUserInfo = async (
   return res.data;
 };
 
-// ── GET /.well-known/openid-configuration ─────────────
+//  GET /public/.well-known/openid-configuration ─
 
 export const apiOIDCDiscovery = async (): Promise<
   APIBaseResponse<IOIDCDiscoveryResponse>
 > => {
   const res = await oauthClient.get<APIBaseResponse<IOIDCDiscoveryResponse>>(
-    "/.well-known/openid-configuration",
+    `${BASE}/.well-known/openid-configuration`,
   );
   return res.data;
 };
 
-// ── POST /oauth/revoke ────────────────────────────────
+//  POST /public/oauth/revoke
 
 export const apiOAuthRevoke = async (
   token: string,
@@ -93,7 +97,7 @@ export const apiOAuthRevoke = async (
   if (tokenTypeHint) params.append("token_type_hint", tokenTypeHint);
 
   const res = await oauthClient.post<APIBaseResponse<{ message: string }>>(
-    "/oauth/revoke",
+    `${BASE}/oauth/revoke`,
     params.toString(),
     {
       headers: {
@@ -104,7 +108,7 @@ export const apiOAuthRevoke = async (
   return res.data;
 };
 
-// ── POST /public/oauth/login ──────────────────────────
+//  POST /public/oauth/login
 
 export const apiOAuthLogin = async (body: {
   identifier: string;
@@ -117,6 +121,6 @@ export const apiOAuthLogin = async (body: {
     state: string;
   }>
 > => {
-  const res = await publicClient.post("/public/oauth/login", body);
+  const res = await publicClient.post(`${BASE}/oauth/login`, body);
   return res.data;
 };

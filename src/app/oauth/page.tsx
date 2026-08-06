@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -8,8 +8,9 @@ import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { PageSpinner } from "@/components/ui/Spinner";
 import { useOAuth } from "@/hooks/useOAuth";
+import { env } from "@/config/env.config";
 
-export default function OAuthDemoPage() {
+export default function OAuthPage() {
   const router = useRouter();
   const { state, loading, fetchDiscovery, initiateAuthorize } = useOAuth();
 
@@ -19,11 +20,19 @@ export default function OAuthDemoPage() {
 
   useEffect(() => {
     fetchDiscovery();
+    // Load the real client id (APP_IDENTIFIER) and prefill this app's callback.
+    env()
+      .then(({ APP }) => {
+        setClientId(APP.APP_IDENTIFIER);
+        if (typeof window !== "undefined") {
+          setRedirectUri(`${window.location.origin}/oauth/callback`);
+        }
+      })
+      .catch(() => {});
   }, [fetchDiscovery]);
 
   const handleAuthorize = async () => {
-    // For full redirect flow, we need to redirect the browser directly
-    // to the backend's authorize endpoint (not through our proxy which handles 302)
+    const { APP } = await env();
     const pkce = await import("@/utils/pkce.util");
     const codeVerifier = pkce.generateCodeVerifier();
     const codeChallenge = await pkce.generateCodeChallenge(codeVerifier);
@@ -39,22 +48,23 @@ export default function OAuthDemoPage() {
       }),
     );
 
-    const envUrl = process.env.NEXT_PUBLIC_API_URL || "";
-    const baseUrl = envUrl || window.location.origin;
-
     const params = new URLSearchParams({
       client_id: clientId,
       response_type: "code",
-      redirect_uri: `${window.location.origin}/oauth-demo/callback`,
+      redirect_uri: redirectUri || `${window.location.origin}/oauth/callback`,
       scope,
       state: oauthState,
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
     });
 
-    // Redirect browser directly to the IAM backend authorize endpoint
-    // (The backend will 302 redirect to the login page)
-    window.location.href = `${baseUrl}/oauth/authorize?${params.toString()}`;
+    console.log(
+      "Redirecting to authorize endpoint with params:",
+      params.toString(),
+    );
+
+    // The backend will 302-redirect to its login page with a session_id.
+    window.location.href = `${APP.API_URL}/public/oauth/authorize?${params.toString()}`;
   };
 
   // Simulated flow option (non-redirect)
@@ -68,7 +78,7 @@ export default function OAuthDemoPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 space-y-6">
       <Card
-        title="OAuth 2.0 / OpenID Connect Demo"
+        title="OAuth 2.0 / OpenID Connect"
         description="Full Authorization Code Flow with PKCE (S256)."
       >
         {loading && !state.discovery ? (
@@ -158,7 +168,7 @@ export default function OAuthDemoPage() {
         <ol className="ml-4 list-decimal space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <li>
             <strong>Authorize:</strong> Redirect to{" "}
-            <code>/oauth/authorize</code> with PKCE challenge
+            <code>/public/oauth/authorize</code> with PKCE challenge
           </li>
           <li>
             <strong>Login:</strong> Backend redirects to login page with
@@ -169,12 +179,12 @@ export default function OAuthDemoPage() {
             redirect_uri
           </li>
           <li>
-            <strong>Token Exchange:</strong> <code>POST /oauth/token</code> with
-            code + code_verifier
+            <strong>Token Exchange:</strong>{" "}
+            <code>POST /public/oauth/token</code> with code + code_verifier
           </li>
           <li>
-            <strong>UserInfo:</strong> <code>GET /oauth/userinfo</code> with
-            Bearer token
+            <strong>UserInfo:</strong> <code>GET /public/oauth/userinfo</code>{" "}
+            with Bearer token
           </li>
           <li>
             <strong>Refresh:</strong> <code>POST /oauth/token</code> with

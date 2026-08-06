@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ITokens } from "@/types/auth.types";
+import { apiGetMe } from "@/services/profile.service";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -10,7 +11,7 @@ const navLinks = [
   { href: "/me", label: "Profile" },
   { href: "/users", label: "Users" },
   { href: "/reset-password", label: "Reset Password" },
-  { href: "/oauth-demo", label: "OAuth Demo" },
+  { href: "/oauth", label: "OAuth" },
 ];
 
 export const Navbar = () => {
@@ -19,8 +20,7 @@ export const Navbar = () => {
 
   useEffect(() => {
     // Check auth state via a cookie-readable approach
-    fetch("/api/public/me")
-      .then((r) => r.json())
+    apiGetMe()
       .then((data) => {
         if (data.status) {
           setAuth({
@@ -44,7 +44,6 @@ export const Navbar = () => {
           IAM Tenant Example
         </Link>
 
-        {/* Desktop links */}
         <div className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (
             <Link
@@ -62,7 +61,6 @@ export const Navbar = () => {
           )}
         </div>
 
-        {/* Mobile hamburger */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 md:hidden dark:text-gray-400 dark:hover:bg-gray-800"
@@ -93,7 +91,6 @@ export const Navbar = () => {
         </button>
       </div>
 
-      {/* Mobile menu */}
       {menuOpen && (
         <div className="border-t border-gray-200 px-4 pb-4 md:hidden dark:border-gray-700">
           {navLinks.map((link) => (

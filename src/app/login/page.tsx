@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/hooks/useAuth";
+import { apiGetMe } from "@/services/profile.service";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,9 +29,8 @@ export default function LoginPage() {
     if (success) {
       // Fetch the full response from /me to show
       try {
-        const res = await fetch("/api/public/me");
-        const data = await res.json();
-        setResult(data);
+        const data = await apiGetMe();
+        setResult(data as unknown as Record<string, unknown>);
       } catch {
         setResult({ message: "Login succeeded but profile fetch failed" });
       }

@@ -1,5 +1,3 @@
-// ── Login ─────────────────────────────────────────────
-
 export interface ILoginRequest {
   identifier: string;
   password: string;
@@ -17,8 +15,6 @@ export interface ILoginResponse {
   passwordExpiresAt?: string | null;
 }
 
-// ── Pre-Token ─────────────────────────────────────────
-
 export interface IPreTokenResponse {
   npk: string;
   preToken: string;
@@ -30,8 +26,6 @@ export interface IPreTokenClaimsRequest {
   preToken: string;
 }
 
-// ── Tokens (cookie storage) ───────────────────────────
-
 export interface ITokens {
   accessToken: string | null;
   refreshToken: string | null;
@@ -39,8 +33,6 @@ export interface ITokens {
   email?: string;
   npk?: string;
 }
-
-// ── Refresh Token ─────────────────────────────────────
 
 export interface IRefreshTokenRequest {
   refreshToken: string;
@@ -54,8 +46,6 @@ export interface IRefreshTokenResponse {
   tokenType: string;
 }
 
-// ── Validate Token ────────────────────────────────────
-
 export interface IValidateTokenRequest {
   token: string;
   tokenType: "access_token" | "refresh_token";
@@ -67,13 +57,9 @@ export interface IValidateTokenResponse {
   message: string | null;
 }
 
-// ── Logout ────────────────────────────────────────────
-
 export interface ILogoutResponse {
   message: string;
 }
-
-// ── User Detail (GET /public/me) ──────────────────────
 
 export interface IApplicationInfo {
   appName: string;
@@ -90,8 +76,6 @@ export interface IUserDetail {
   directMenuInfo: unknown[] | null;
 }
 
-// ── User Profile (GET /public/me/profile) ─────────────
-
 export interface IUserProfile {
   id: number;
   email: string;
@@ -100,8 +84,6 @@ export interface IUserProfile {
   npk: string;
   application: IApplicationInfo | null;
 }
-
-// ── Update Profile (PUT /public/me) ───────────────────
 
 export interface IUpdateProfileRequest {
   fullName?: string;

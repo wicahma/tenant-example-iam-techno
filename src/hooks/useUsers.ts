@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import toast from "react-hot-toast";
 import { IUserListItem, IGetUsersParams } from "@/types/user.types";
 import { IPagination } from "@/types/api.types";
+import { apiGetUsers } from "@/services/user.service";
 
 interface UseUsersReturn {
   users: IUserListItem[];
@@ -23,16 +24,7 @@ export const useUsers = (): UseUsersReturn => {
   const fetchUsers = useCallback(async (params?: IGetUsersParams) => {
     setLoading(true);
     try {
-      const query = new URLSearchParams();
-      if (params?.page) query.set("page", String(params.page));
-      if (params?.limit) query.set("limit", String(params.limit));
-      if (params?.search) query.set("search", params.search);
-      if (params?.isActive !== undefined)
-        query.set("isActive", String(params.isActive));
-
-      const qs = query.toString();
-      const res = await fetch(`/api/public/users${qs ? `?${qs}` : ""}`);
-      const data = await res.json();
+      const data = await apiGetUsers(params);
 
       if (data.status) {
         setUsers(data.data || []);

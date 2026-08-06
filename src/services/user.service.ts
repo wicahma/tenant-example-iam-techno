@@ -6,7 +6,7 @@ import { IGetUsersParams, IUserListItem } from "@/types/user.types";
 
 const BASE = "/public";
 
-// ── GET /public/users ─────────────────────────────────
+// GET /public/users
 
 export const apiGetUsers = async (
   params: IGetUsersParams = {},

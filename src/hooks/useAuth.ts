@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import toast from "react-hot-toast";
 import { ILoginRequest } from "@/types/auth.types";
+import { apiManualLogin, apiLogout } from "@/services/auth.service";
 
 interface UseAuthReturn {
   login: (
@@ -27,17 +28,7 @@ export const useAuth = (): UseAuthReturn => {
     ): Promise<boolean> => {
       setLoading(true);
       try {
-        const res = await fetch("/api/public/manual/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-username-source": usernameSource,
-            "x-response-type": responseType,
-          },
-          body: JSON.stringify(body),
-        });
-
-        const data = await res.json();
+        const data = await apiManualLogin(body, usernameSource, responseType);
 
         if (data.status) {
           setIsAuthenticated(true);
@@ -60,8 +51,7 @@ export const useAuth = (): UseAuthReturn => {
   const logout = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     try {
-      const res = await fetch("/api/public/logout", { method: "POST" });
-      const data = await res.json();
+      const data = await apiLogout();
 
       if (data.status) {
         setIsAuthenticated(false);

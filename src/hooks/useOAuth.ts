@@ -10,6 +10,13 @@ import {
   IOIDCDiscoveryResponse,
 } from "@/types/oauth.types";
 import {
+  apiOIDCDiscovery,
+  apiOAuthAuthorize,
+  apiOAuthToken,
+  apiOAuthUserInfo,
+  apiOAuthRevoke,
+} from "@/services/oauth.service";
+import {
   generateCodeVerifier,
   generateCodeChallenge,
   generateState,
@@ -35,7 +42,10 @@ interface UseOAuthReturn {
   }) => Promise<string | null>;
   exchangeCode: (code: string, returnedState: string) => Promise<void>;
   fetchUserInfo: (accessToken: string) => Promise<void>;
-  revokeToken: (token: string, typeHint?: string) => Promise<void>;
+  revokeToken: (
+    token: string,
+    typeHint?: "access_token" | "refresh_token",
+  ) => Promise<void>;
 }
 
 const STORAGE_KEY = "oauth_pkce";
@@ -54,10 +64,10 @@ export const useOAuth = (): UseOAuthReturn => {
   const fetchDiscovery = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/oauth/.well-known/openid-configuration");
-      const data = await res.json();
+      const data = await apiOIDCDiscovery();
       if (data) {
-        setOAuthState((s) => ({ ...s, discovery: data.data || data }));
+        const discovery = (data.data || data) as IOIDCDiscoveryResponse;
+        setOAuthState((s) => ({ ...s, discovery }));
       }
     } catch {
       toast.error("Failed to fetch discovery config");
@@ -90,7 +100,7 @@ export const useOAuth = (): UseOAuthReturn => {
 
         setOAuthState((s) => ({ ...s, codeVerifier, oauthState: state }));
 
-        const query = new URLSearchParams({
+        const authorizeParams: IOAuthAuthorizeParams = {
           client_id: params.clientId,
           response_type: "code",
           redirect_uri: params.redirectUri,
@@ -98,26 +108,20 @@ export const useOAuth = (): UseOAuthReturn => {
           state,
           code_challenge: codeChallenge,
           code_challenge_method: "S256",
-        });
+        };
 
-        // Build the authorize URL that will redirect through our API proxy
-        const authorizeUrl = `/api/oauth/authorize?${query.toString()}`;
+        // Call the backend authorize endpoint via the service layer.
+        // The backend may 302-redirect to the login page; expose that location.
+        const result = await apiOAuthAuthorize(authorizeParams);
 
-        // We return the URL so the page can use it
-        // The actual redirect will be handled by the IAM Techno backend (302)
-        const res = await fetch(authorizeUrl, { redirect: "manual" });
-
-        if (res.status === 302) {
-          const location = res.headers.get("location");
-          if (location) {
-            setOAuthState((s) => ({ ...s, authorizeData: null }));
-            return location;
-          }
+        if (result.status === 302 && result.location) {
+          setOAuthState((s) => ({ ...s, authorizeData: null }));
+          return result.location;
         }
 
-        const data = await res.json();
+        const data = result.data;
         if (data.status && data.data) {
-          setOAuthState((s) => ({ ...s, authorizeData: data.data }));
+          setOAuthState((s) => ({ ...s, authorizeData: data.data ?? null }));
           return data.data.authenticationEndpoint
             ? `${data.data.authenticationEndpoint}?session_id=${data.data.sessionId}&client_id=${data.data.clientId}`
             : null;
@@ -154,21 +158,15 @@ export const useOAuth = (): UseOAuthReturn => {
 
         sessionStorage.removeItem(STORAGE_KEY);
 
-        const params = new URLSearchParams();
-        params.append("grant_type", "authorization_code");
-        params.append("code", code);
-        params.append("code_verifier", codeVerifier);
-        params.append("client_id", ""); // Will be added by backend based on tenant
-
-        const res = await fetch("/api/oauth/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: params.toString(),
+        const data = await apiOAuthToken({
+          grant_type: "authorization_code",
+          code,
+          code_verifier: codeVerifier,
+          client_id: "", // Will be added by backend based on tenant
         });
 
-        const data = await res.json();
         if (data.status && data.data) {
-          setOAuthState((s) => ({ ...s, tokenData: data.data }));
+          setOAuthState((s) => ({ ...s, tokenData: data.data ?? null }));
           toast.success("Token exchange successful");
         } else {
           toast.error(data.message || "Token exchange failed");
@@ -185,12 +183,9 @@ export const useOAuth = (): UseOAuthReturn => {
   const fetchUserInfo = useCallback(async (accessToken: string) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/oauth/userinfo", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = await res.json();
+      const data = await apiOAuthUserInfo(accessToken);
       if (data.status && data.data) {
-        setOAuthState((s) => ({ ...s, userInfoData: data.data }));
+        setOAuthState((s) => ({ ...s, userInfoData: data.data ?? null }));
       } else {
         toast.error(data.message || "UserInfo failed");
       }
@@ -201,28 +196,22 @@ export const useOAuth = (): UseOAuthReturn => {
     }
   }, []);
 
-  const revokeToken = useCallback(async (token: string, typeHint?: string) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.append("token", token);
-      if (typeHint) params.append("token_type_hint", typeHint);
-
-      const res = await fetch("/api/oauth/revoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
-      });
-      const data = await res.json();
-      if (data.message) {
-        toast.success("Token revoked");
+  const revokeToken = useCallback(
+    async (token: string, typeHint?: "access_token" | "refresh_token") => {
+      setLoading(true);
+      try {
+        const data = await apiOAuthRevoke(token, typeHint);
+        if (data.status) {
+          toast.success("Token revoked");
+        }
+      } catch {
+        toast.error("Revoke failed");
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      toast.error("Revoke failed");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   return {
     state: oauthState,

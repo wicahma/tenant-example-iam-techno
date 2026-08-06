@@ -10,6 +10,7 @@ import type {
   IOAuthTokenResponse,
   IOAuthUserInfoResponse,
 } from "@/types/oauth.types";
+import { apiOAuthToken, apiOAuthUserInfo } from "@/services/oauth.service";
 
 const STORAGE_KEY = "oauth_pkce";
 
@@ -67,37 +68,27 @@ function CallbackContent() {
       sessionStorage.removeItem(STORAGE_KEY);
 
       // Token exchange
-      const params = new URLSearchParams();
-      params.append("grant_type", "authorization_code");
-      params.append("code", authCode);
-      params.append("code_verifier", codeVerifier);
-      params.append("client_id", clientId || "");
-
-      const tokenRes = await fetch("/api/oauth/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
+      const tokenRes = await apiOAuthToken({
+        grant_type: "authorization_code",
+        code: authCode,
+        code_verifier: codeVerifier,
+        client_id: clientId || "",
       });
 
-      const tokenJson = await tokenRes.json();
-
-      if (tokenJson.status && tokenJson.data) {
-        const tokens = tokenJson.data as IOAuthTokenResponse;
+      if (tokenRes.status && tokenRes.data) {
+        const tokens = tokenRes.data as IOAuthTokenResponse;
         setTokenData(tokens);
 
         // Fetch UserInfo
         setStep("userinfo");
-        const userInfoRes = await fetch("/api/oauth/userinfo", {
-          headers: { Authorization: `Bearer ${tokens.accessToken}` },
-        });
-        const userInfoJson = await userInfoRes.json();
+        const userInfoRes = await apiOAuthUserInfo(tokens.accessToken);
 
-        if (userInfoJson.status && userInfoJson.data) {
-          setUserInfoData(userInfoJson.data);
+        if (userInfoRes.status && userInfoRes.data) {
+          setUserInfoData(userInfoRes.data);
         }
         setStep("done");
       } else {
-        setErrorMessage(tokenJson.message || "Token exchange failed");
+        setErrorMessage(tokenRes.message || "Token exchange failed");
         setStep("error");
       }
     } catch (err) {
@@ -121,9 +112,7 @@ function CallbackContent() {
           </Badge>
           <p className="text-red-600 dark:text-red-400">{errorMessage}</p>
           <div className="mt-6 flex gap-2">
-            <Button onClick={() => router.push("/oauth-demo")}>
-              Try Again
-            </Button>
+            <Button onClick={() => router.push("/oauth")}>Try Again</Button>
             <Button variant="outline" onClick={() => router.push("/")}>
               Go Home
             </Button>
@@ -193,7 +182,7 @@ function CallbackContent() {
 
       {/* Token Response */}
       {tokenData && (
-        <Card title="Token Response (POST /oauth/token)">
+        <Card title="Token Response (POST /public/oauth/token)">
           <dl className="divide-y divide-gray-200 dark:divide-gray-700">
             {[
               ["Access Token", `${tokenData.accessToken.substring(0, 32)}...`],
@@ -266,9 +255,7 @@ function CallbackContent() {
       )}
 
       <div className="flex gap-2">
-        <Button onClick={() => router.push("/oauth-demo")}>
-          Start New Flow
-        </Button>
+        <Button onClick={() => router.push("/oauth")}>Start New Flow</Button>
         <Button variant="outline" onClick={() => router.push("/")}>
           Go Home
         </Button>

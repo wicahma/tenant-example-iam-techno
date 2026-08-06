@@ -1,4 +1,4 @@
-// ── OAuth Authorize ───────────────────────────────────
+import { APIBaseResponse } from "@/types/api.types";
 
 export interface IOAuthAuthorizeParams {
   client_id: string;
@@ -22,8 +22,6 @@ export interface IOAuthAuthorizeResponse {
   authenticationEndpoint: string;
 }
 
-// ── OAuth Token ───────────────────────────────────────
-
 export interface IOAuthTokenRequest {
   grant_type: "authorization_code" | "refresh_token";
   code?: string;
@@ -43,8 +41,6 @@ export interface IOAuthTokenResponse {
   scope?: string;
 }
 
-// ── OAuth UserInfo ────────────────────────────────────
-
 export interface IOAuthUserInfoResponse {
   sub: string;
   name: string | null;
@@ -59,8 +55,6 @@ export interface IOAuthUserInfoResponse {
   } | null;
   directMenuInfo: unknown[] | null;
 }
-
-// ── OIDC Discovery ────────────────────────────────────
 
 export interface IOIDCDiscoveryResponse {
   issuer: string;
@@ -78,9 +72,13 @@ export interface IOIDCDiscoveryResponse {
   claimsSupported: string[];
 }
 
-// ── OAuth Revoke ──────────────────────────────────────
-
 export interface IOAuthRevokeRequest {
   token: string;
   token_type_hint?: "access_token" | "refresh_token";
+}
+
+export interface IOAuthAuthorizeResult {
+  status: number;
+  location?: string;
+  data: APIBaseResponse<IOAuthAuthorizeResponse>;
 }

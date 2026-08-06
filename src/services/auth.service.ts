@@ -18,8 +18,6 @@ import { setToken, clearToken } from "@/utils/cookie.util";
 
 const BASE = "/public";
 
-// ── POST /public/manual/login ─────────────────────────
-
 export const apiManualLogin = async (
   body: ILoginRequest,
   usernameSource: string = "npk,email",
@@ -34,9 +32,10 @@ export const apiManualLogin = async (
     },
   });
 
-  // Store tokens if default mode returned them
+  console.log("Login Response:", res.data);
   if (res.data.status && res.data.data && "accessToken" in res.data.data) {
     const loginData = res.data.data as ILoginResponse;
+    console.log("Login Data:", loginData);
     const tokens: ITokens = {
       accessToken: loginData.accessToken,
       refreshToken: loginData.refreshToken,
@@ -49,8 +48,6 @@ export const apiManualLogin = async (
 
   return res.data;
 };
-
-// ── POST /public/pre-token/claims ─────────────────────
 
 export const apiPreTokenClaims = async (
   body: IPreTokenClaimsRequest,
@@ -75,8 +72,6 @@ export const apiPreTokenClaims = async (
   return res.data;
 };
 
-// ── POST /public/logout ───────────────────────────────
-
 export const apiLogout = async (): Promise<
   APIBaseResponse<ILogoutResponse>
 > => {
@@ -86,8 +81,6 @@ export const apiLogout = async (): Promise<
   await clearToken();
   return res.data;
 };
-
-// ── POST /public/me/refresh-token ─────────────────────
 
 export const apiRefreshToken = async (
   body: IRefreshTokenRequest,
@@ -111,8 +104,6 @@ export const apiRefreshToken = async (
 
   return res.data;
 };
-
-// ── POST /public/validate-token ───────────────────────
 
 export const apiValidateToken = async (
   body: IValidateTokenRequest,

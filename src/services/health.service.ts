@@ -1,7 +1,6 @@
 "use server";
 
 import { oauthClient } from "@/config/api.config";
-import { APIBaseResponse } from "@/types/api.types";
 
 interface IHealthResponse {
   status: string;
@@ -9,12 +8,9 @@ interface IHealthResponse {
   timestamp: string;
 }
 
-// ── GET /public/health ────────────────────────────────
+// GET /public/health
 
-export const apiHealthCheck = async (): Promise<
-  APIBaseResponse<IHealthResponse>
-> => {
-  const res =
-    await oauthClient.get<APIBaseResponse<IHealthResponse>>("/public/health");
+export const apiHealthCheck = async (): Promise<IHealthResponse> => {
+  const res = await oauthClient.get<IHealthResponse>("/public/health");
   return res.data;
 };
