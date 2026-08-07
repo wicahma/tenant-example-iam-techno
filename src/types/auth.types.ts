@@ -57,6 +57,22 @@ export interface IValidateTokenResponse {
   message: string | null;
 }
 
+export interface ITokenStatusInfo {
+  isValid: boolean;
+  expiresAt: string | null;
+  message: string | null;
+}
+
+export interface IValidateTokensRequest {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface IValidateTokensResponse {
+  accessToken: ITokenStatusInfo;
+  refreshToken: ITokenStatusInfo;
+}
+
 export interface ILogoutResponse {
   message: string;
 }

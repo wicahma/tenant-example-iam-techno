@@ -11,6 +11,8 @@ import {
   IRefreshTokenResponse,
   IValidateTokenRequest,
   IValidateTokenResponse,
+  IValidateTokensRequest,
+  IValidateTokensResponse,
   ILogoutResponse,
   ITokens,
 } from "@/types/auth.types";
@@ -110,6 +112,16 @@ export const apiValidateToken = async (
 ): Promise<APIBaseResponse<IValidateTokenResponse>> => {
   const res = await publicClient.post<APIBaseResponse<IValidateTokenResponse>>(
     `${BASE}/validate-token`,
+    body,
+  );
+  return res.data;
+};
+
+export const apiValidateTokens = async (
+  body: IValidateTokensRequest,
+): Promise<APIBaseResponse<IValidateTokensResponse>> => {
+  const res = await publicClient.post<APIBaseResponse<IValidateTokensResponse>>(
+    `${BASE}/me/validate-tokens`,
     body,
   );
   return res.data;

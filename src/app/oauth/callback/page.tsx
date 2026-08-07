@@ -11,8 +11,51 @@ import type {
   IOAuthUserInfoResponse,
 } from "@/types/oauth.types";
 import { apiOAuthToken, apiOAuthUserInfo } from "@/services/oauth.service";
+import { loadPkce, clearPkce } from "@/utils/pkceStorage";
 
-const STORAGE_KEY = "oauth_pkce";
+// Whether this page is running inside the OAuth popup (opened from the demo page).
+const isPopup = () => typeof window !== "undefined" && !!window.opener;
+
+// Notify the opener page (the /oauth demo page) that the flow completed.
+const notifyOpenerComplete = (
+  tokenData: IOAuthTokenResponse,
+  userInfoData: IOAuthUserInfoResponse | null,
+) => {
+  try {
+    if (
+      typeof window !== "undefined" &&
+      window.opener &&
+      !window.opener.closed
+    ) {
+      window.opener.postMessage(
+        {
+          type: "oauth:callback:complete",
+          payload: { tokenData, userInfoData },
+        },
+        window.location.origin,
+      );
+    }
+  } catch {
+    // ignore cross-origin / closed opener
+  }
+};
+
+const notifyOpenerError = (message: string) => {
+  try {
+    if (
+      typeof window !== "undefined" &&
+      window.opener &&
+      !window.opener.closed
+    ) {
+      window.opener.postMessage(
+        { type: "oauth:callback:error", error: message },
+        window.location.origin,
+      );
+    }
+  } catch {
+    // ignore cross-origin / closed opener
+  }
+};
 
 function CallbackContent() {
   const router = useRouter();
@@ -50,22 +93,26 @@ function CallbackContent() {
     setStep("exchange");
     try {
       // Retrieve stored PKCE data
-      const stored = sessionStorage.getItem(STORAGE_KEY);
+      const stored = loadPkce();
       if (!stored) {
-        setErrorMessage("PKCE session expired. Please restart the flow.");
+        const msg = "PKCE session expired. Please restart the flow.";
+        setErrorMessage(msg);
         setStep("error");
+        notifyOpenerError(msg);
         return;
       }
 
-      const { codeVerifier, state: storedState, clientId } = JSON.parse(stored);
+      const { codeVerifier, state: storedState, clientId } = stored;
 
       if (state !== storedState) {
-        setErrorMessage("State mismatch — possible CSRF attack!");
+        const msg = "State mismatch — possible CSRF attack!";
+        setErrorMessage(msg);
         setStep("error");
+        notifyOpenerError(msg);
         return;
       }
 
-      sessionStorage.removeItem(STORAGE_KEY);
+      clearPkce();
 
       // Token exchange
       const tokenRes = await apiOAuthToken({
@@ -82,20 +129,25 @@ function CallbackContent() {
         // Fetch UserInfo
         setStep("userinfo");
         const userInfoRes = await apiOAuthUserInfo(tokens.accessToken);
+        let userInfo: IOAuthUserInfoResponse | null = null;
 
         if (userInfoRes.status && userInfoRes.data) {
-          setUserInfoData(userInfoRes.data);
+          userInfo = userInfoRes.data;
+          setUserInfoData(userInfo);
         }
         setStep("done");
+        notifyOpenerComplete(tokens, userInfo);
       } else {
-        setErrorMessage(tokenRes.message || "Token exchange failed");
+        const msg = tokenRes.message || "Token exchange failed";
+        setErrorMessage(msg);
         setStep("error");
+        notifyOpenerError(msg);
       }
     } catch (err) {
-      setErrorMessage(
-        err instanceof Error ? err.message : "Token exchange failed",
-      );
+      const msg = err instanceof Error ? err.message : "Token exchange failed";
+      setErrorMessage(msg);
       setStep("error");
+      notifyOpenerError(msg);
     }
   };
 
@@ -107,15 +159,26 @@ function CallbackContent() {
     return (
       <div className="mx-auto max-w-lg px-4 py-12">
         <Card title="OAuth Error">
+          {isPopup() && (
+            <Badge variant="info" className="mb-4">
+              Popup window
+            </Badge>
+          )}
           <Badge variant="danger" className="mb-4">
             {errorParam || "Error"}
           </Badge>
           <p className="text-red-600 dark:text-red-400">{errorMessage}</p>
           <div className="mt-6 flex gap-2">
-            <Button onClick={() => router.push("/oauth")}>Try Again</Button>
-            <Button variant="outline" onClick={() => router.push("/")}>
-              Go Home
-            </Button>
+            {isPopup() ? (
+              <Button onClick={() => window.close()}>Close Window</Button>
+            ) : (
+              <>
+                <Button onClick={() => router.push("/oauth")}>Try Again</Button>
+                <Button variant="outline" onClick={() => router.push("/")}>
+                  Go Home
+                </Button>
+              </>
+            )}
           </div>
         </Card>
       </div>
@@ -127,6 +190,11 @@ function CallbackContent() {
       {/* Progress */}
       <Card>
         <div className="flex items-center gap-3">
+          {isPopup() && (
+            <Badge variant="info" className="mr-2">
+              Popup window
+            </Badge>
+          )}
           {["Authorize", "Token Exchange", "UserInfo", "Complete"].map(
             (label, i) => {
               const steps = ["init", "exchange", "userinfo", "done"];
@@ -255,10 +323,23 @@ function CallbackContent() {
       )}
 
       <div className="flex gap-2">
-        <Button onClick={() => router.push("/oauth")}>Start New Flow</Button>
-        <Button variant="outline" onClick={() => router.push("/")}>
-          Go Home
-        </Button>
+        {isPopup() ? (
+          <>
+            <Button onClick={() => window.close()}>Close Window</Button>
+            <Button variant="outline" onClick={() => router.push("/oauth")}>
+              Start New Flow
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={() => router.push("/oauth")}>
+              Start New Flow
+            </Button>
+            <Button variant="outline" onClick={() => router.push("/")}>
+              Go Home
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

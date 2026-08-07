@@ -21,6 +21,7 @@ import {
   generateCodeChallenge,
   generateState,
 } from "@/utils/pkce.util";
+import { savePkce, loadPkce, clearPkce } from "@/utils/pkceStorage";
 
 interface OAuthState {
   authorizeData: IOAuthAuthorizeResponse | null;
@@ -47,8 +48,6 @@ interface UseOAuthReturn {
     typeHint?: "access_token" | "refresh_token",
   ) => Promise<void>;
 }
-
-const STORAGE_KEY = "oauth_pkce";
 
 export const useOAuth = (): UseOAuthReturn => {
   const [oauthState, setOAuthState] = useState<OAuthState>({
@@ -88,15 +87,12 @@ export const useOAuth = (): UseOAuthReturn => {
         const codeChallenge = await generateCodeChallenge(codeVerifier);
         const state = generateState();
 
-        // Store PKCE data in sessionStorage for callback
-        sessionStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            codeVerifier,
-            state,
-            redirectUri: params.redirectUri,
-          }),
-        );
+        // Store PKCE data (localStorage so popups/new tabs can read it)
+        savePkce({
+          codeVerifier,
+          state,
+          redirectUri: params.redirectUri,
+        });
 
         setOAuthState((s) => ({ ...s, codeVerifier, oauthState: state }));
 
@@ -144,19 +140,19 @@ export const useOAuth = (): UseOAuthReturn => {
       setLoading(true);
       try {
         // Retrieve stored PKCE data
-        const stored = sessionStorage.getItem(STORAGE_KEY);
+        const stored = loadPkce();
         if (!stored) {
           toast.error("PKCE session expired. Please restart the flow.");
           return;
         }
 
-        const { codeVerifier, state: storedState } = JSON.parse(stored);
+        const { codeVerifier, state: storedState } = stored;
         if (returnedState !== storedState) {
           toast.error("State mismatch — possible CSRF attack");
           return;
         }
 
-        sessionStorage.removeItem(STORAGE_KEY);
+        clearPkce();
 
         const data = await apiOAuthToken({
           grant_type: "authorization_code",

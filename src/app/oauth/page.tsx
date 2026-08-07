@@ -1,14 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
-import { PageSpinner } from "@/components/ui/Spinner";
+import { PageSpinner, Spinner } from "@/components/ui/Spinner";
+import toast from "react-hot-toast";
 import { useOAuth } from "@/hooks/useOAuth";
 import { env } from "@/config/env.config";
+import { savePkce } from "@/utils/pkceStorage";
+import type {
+  IOAuthTokenResponse,
+  IOAuthUserInfoResponse,
+} from "@/types/oauth.types";
+
+interface PopupResult {
+  tokenData: IOAuthTokenResponse;
+  userInfoData: IOAuthUserInfoResponse | null;
+}
 
 export default function OAuthPage() {
   const router = useRouter();
@@ -17,6 +28,12 @@ export default function OAuthPage() {
   const [clientId, setClientId] = useState("");
   const [redirectUri, setRedirectUri] = useState("");
   const [scope, setScope] = useState("openid profile email");
+
+  // Popup flow state
+  const [opening, setOpening] = useState(false);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupResult, setPopupResult] = useState<PopupResult | null>(null);
+  const popupRef = useRef<Window | null>(null);
 
   useEffect(() => {
     fetchDiscovery();
@@ -31,43 +48,113 @@ export default function OAuthPage() {
       .catch(() => {});
   }, [fetchDiscovery]);
 
-  const handleAuthorize = async () => {
-    const { APP } = await env();
-    const pkce = await import("@/utils/pkce.util");
-    const codeVerifier = pkce.generateCodeVerifier();
-    const codeChallenge = await pkce.generateCodeChallenge(codeVerifier);
-    const oauthState = pkce.generateState();
+  // Listen for the callback popup finishing (postMessage from the callback page).
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as {
+        type?: string;
+        payload?: PopupResult;
+        error?: string;
+      };
+      if (data.type === "oauth:callback:complete") {
+        setPopupResult(data.payload ?? null);
+        setPopupOpen(false);
+        toast.success("OAuth login completed in popup");
+      } else if (data.type === "oauth:callback:error") {
+        setPopupOpen(false);
+        toast.error(data.error || "OAuth login failed");
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
-    sessionStorage.setItem(
-      "oauth_pkce",
-      JSON.stringify({
+  // Detect the popup being closed manually and clear the waiting overlay.
+  useEffect(() => {
+    if (!popupOpen) return;
+    const timer = setInterval(() => {
+      if (popupRef.current && popupRef.current.closed) {
+        popupRef.current = null;
+        setPopupOpen(false);
+        toast("OAuth popup was closed before completing login");
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [popupOpen]);
+
+  const handleAuthorize = async () => {
+    setOpening(true);
+    setPopupResult(null);
+
+    // Open the popup synchronously (during the user gesture) so popup blockers
+    // don't block it, then navigate it once the PKCE params are ready.
+    const popup = window.open(
+      "about:blank",
+      "iam_techno_oauth",
+      "popup=yes,width=480,height=680,left=160,top=120,scrollbars=yes,resizable=yes",
+    );
+
+    if (!popup) {
+      setOpening(false);
+      toast.error(
+        "Popup blocked. Please allow popups for this site and try again.",
+      );
+      return;
+    }
+
+    popupRef.current = popup;
+    setPopupOpen(true);
+
+    try {
+      const { APP } = await env();
+      const pkce = await import("@/utils/pkce.util");
+      const codeVerifier = pkce.generateCodeVerifier();
+      const codeChallenge = await pkce.generateCodeChallenge(codeVerifier);
+      const oauthState = pkce.generateState();
+
+      savePkce({
         codeVerifier,
         state: oauthState,
         redirectUri,
         clientId,
-      }),
-    );
+      });
 
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: "code",
-      redirect_uri: redirectUri || `${window.location.origin}/oauth/callback`,
-      scope,
-      state: oauthState,
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-    });
+      const params = new URLSearchParams({
+        client_id: clientId,
+        response_type: "code",
+        redirect_uri: redirectUri || `${window.location.origin}/oauth/callback`,
+        scope,
+        state: oauthState,
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+      });
 
-    console.log(
-      "Redirecting to authorize endpoint with params:",
-      params.toString(),
-    );
+      console.log(
+        "Opening OAuth authorize popup with params:",
+        params.toString(),
+      );
 
-    // The backend will 302-redirect to its login page with a session_id.
-    window.location.href = `${APP.API_URL}/public/oauth/authorize?${params.toString()}`;
+      popup.location.href = `${APP.API_URL}/public/oauth/authorize?${params.toString()}`;
+    } catch (err) {
+      console.error("Failed to start OAuth popup flow:", err);
+      toast.error("Failed to start OAuth flow");
+      if (!popup.closed) popup.close();
+      setPopupOpen(false);
+    } finally {
+      setOpening(false);
+    }
   };
 
-  // Simulated flow option (non-redirect)
+  const closePopupOverlay = () => {
+    setPopupOpen(false);
+    if (popupRef.current && !popupRef.current.closed) {
+      popupRef.current.close();
+    }
+    popupRef.current = null;
+  };
+
+  // Simulated flow option (non-redirect, opens a plain new tab)
   const handleSimulatedAuthorize = async () => {
     const result = await initiateAuthorize({ clientId, redirectUri, scope });
     if (result) {
@@ -147,8 +234,8 @@ export default function OAuthPage() {
               />
 
               <div className="flex flex-wrap gap-2">
-                <Button onClick={handleAuthorize} loading={loading}>
-                  Full Redirect Flow
+                <Button onClick={handleAuthorize} loading={opening}>
+                  {opening ? "Opening Popup..." : "Login with IAM (Popup)"}
                 </Button>
                 <Button
                   variant="outline"
@@ -158,6 +245,11 @@ export default function OAuthPage() {
                   Simulated Flow (New Tab)
                 </Button>
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                The full redirect flow now opens in a separate popup window
+                (like “Login with Google”), so this page is never replaced. A
+                loading overlay is shown until you finish logging in.
+              </p>
             </div>
           </div>
         )}
@@ -194,25 +286,67 @@ export default function OAuthPage() {
       </Card>
 
       {/* Token/UserInfo State */}
-      {(state.tokenData || state.userInfoData) && (
-        <Card title="OAuth Result">
-          {state.tokenData && (
+      {(state.tokenData || state.userInfoData || popupResult) && (
+        <Card
+          title="OAuth Result"
+          description={
+            popupResult
+              ? "Completed via the popup window (auto-refreshed from callback)"
+              : undefined
+          }
+        >
+          {popupResult && (
+            <Badge variant="success" className="mb-4">
+              Popup flow completed
+            </Badge>
+          )}
+          {(state.tokenData || popupResult?.tokenData) && (
             <div className="mb-4">
               <h4 className="mb-2 font-medium">Token Response</h4>
               <pre className="max-h-48 overflow-auto rounded-lg bg-gray-100 p-4 text-xs dark:bg-gray-800">
-                {JSON.stringify(state.tokenData, null, 2)}
+                {JSON.stringify(
+                  popupResult?.tokenData ?? state.tokenData,
+                  null,
+                  2,
+                )}
               </pre>
             </div>
           )}
-          {state.userInfoData && (
+          {(state.userInfoData || popupResult?.userInfoData) && (
             <div>
               <h4 className="mb-2 font-medium">UserInfo Response</h4>
               <pre className="max-h-48 overflow-auto rounded-lg bg-gray-100 p-4 text-xs dark:bg-gray-800">
-                {JSON.stringify(state.userInfoData, null, 2)}
+                {JSON.stringify(
+                  popupResult?.userInfoData ?? state.userInfoData,
+                  null,
+                  2,
+                )}
               </pre>
             </div>
           )}
         </Card>
+      )}
+
+      {/* Popup waiting overlay */}
+      {popupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md">
+            <div className="flex flex-col items-center gap-4 py-6 text-center">
+              <Spinner size="lg" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Waiting for OAuth login…
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                A popup window has been opened with the login page. Complete the
+                login there — this page will update automatically once you are
+                done. You can close this overlay at any time.
+              </p>
+              <Button variant="outline" onClick={closePopupOverlay}>
+                Cancel / Close Popup
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );
