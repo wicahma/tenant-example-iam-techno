@@ -1,6 +1,6 @@
-# IAM Techno — Tenant Example
+# IAM Techno — Product Example
 
-Production-quality reference implementation for integrating with the **IAM Techno Public API**. Covers all 19 public API endpoints with full tenant verification, server-side RSA signing, encrypted token storage, and a polished demo UI.
+Production-quality reference implementation for integrating with the **IAM Techno Public API**. Covers all 19 public API endpoints with full product verification, server-side RSA signing, encrypted token storage, and a polished demo UI.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Browser (React) → fetch('/api/public/*') → Next.js Route Handler → IAM Tec
                                                                        APIKey
 ```
 
-All tenant secrets (private key, API key, backend URL) stay **server-side only**. Tokens are stored in encrypted httpOnly cookies.
+All product secrets (private key, API key, backend URL) stay **server-side only**. Tokens are stored in encrypted httpOnly cookies.
 
 ## Quick Start
 
@@ -23,7 +23,7 @@ npm install
 # 2. Copy environment template
 cp .env.example .env.local
 
-# 3. Fill in .env.local with your tenant credentials
+# 3. Fill in .env.local with your product credentials
 #    (API_URL, API_KEY, APP_IDENTIFIER, RSA_PRIVATE_KEY, KEY_ID, SECRET_KEY, SALT_KEY)
 
 # 4. Start dev server
@@ -44,7 +44,7 @@ npm run dev
 | `MAX_AGE_COOKIES_IN_DAYS`    | No       | Cookie expiry in days (default: 7)                          |
 | `BYPASS_TENANT_VERIFICATION` | No       | Skip RSA signature for dev (default: `false`)               |
 
-\* Not required if `BYPASS_TENANT_VERIFICATION=true` (dev mode)
+\* Not required if `BYPASS_PRODUCT_VERIFICATION=true` (dev mode)
 
 ## Project Structure
 
@@ -122,18 +122,18 @@ src/
 | 19  | GET    | `/.well-known/openid-configuration` | OIDC Discovery       |
 | 20  | POST   | `/oauth/revoke`                     | OAuth revoke         |
 
-## Tenant Verification
+## Product Verification
 
 Every request to `/public/*` endpoints includes these headers (generated server-side):
 
 | Header             | Value                                   |
 | ------------------ | --------------------------------------- |
-| `X-App-Identifier` | Tenant identifier                       |
+| `X-App-Identifier` | Product identifier                      |
 | `X-Timestamp`      | ISO 8601 UTC timestamp                  |
 | `X-Nonce`          | UUID-based unique nonce                 |
 | `X-Key-Id`         | Key ID for RSA verification             |
 | `X-Signature`      | RSA PS256 signature of canonical string |
-| `APIKey`           | Tenant API key                          |
+| `APIKey`           | Product API key                         |
 
 Canonical string format: `{timestamp}\n{method}\n{scheme}://{host}\n{pathAndQuery}\n{kid}\n{bodyHash}\n{nonce}`
 

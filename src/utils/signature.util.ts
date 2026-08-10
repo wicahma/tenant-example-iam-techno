@@ -117,7 +117,7 @@ export async function generateTenantHeaders(
     API_KEY,
     RSA_PRIVATE_KEY,
     KEY_ID,
-    BYPASS_TENANT_VERIFICATION,
+    BYPASS_PRODUCT_VERIFICATION,
     API_URL,
   } = resolvedEnv.APP;
 
@@ -154,10 +154,10 @@ export async function generateTenantHeaders(
 
   // Sign with RSA (skip if bypass enabled for dev)
   let signature = "";
-  if (!BYPASS_TENANT_VERIFICATION) {
+  if (!BYPASS_PRODUCT_VERIFICATION) {
     if (!RSA_PRIVATE_KEY) {
       throw new Error(
-        "RSA_PRIVATE_KEY is required when BYPASS_TENANT_VERIFICATION is not enabled",
+        "RSA_PRIVATE_KEY is required when BYPASS_PRODUCT_VERIFICATION is not enabled",
       );
     }
     const privateKey = normalizePrivateKey(RSA_PRIVATE_KEY);

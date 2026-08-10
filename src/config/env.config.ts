@@ -7,7 +7,7 @@ export interface IEnvConfig {
     APP_IDENTIFIER: string;
     RSA_PRIVATE_KEY: string;
     KEY_ID: string;
-    BYPASS_TENANT_VERIFICATION: boolean;
+    BYPASS_PRODUCT_VERIFICATION: boolean;
     COOKIES: {
       MAX_AGE_IN_DAYS: number;
     };
@@ -32,7 +32,7 @@ export const env = async (): Promise<IEnvConfig> => {
   const saltKey = process.env.SALT_KEY;
 
   // Validate required vars (skip if bypass enabled for dev)
-  const bypass = process.env.BYPASS_TENANT_VERIFICATION === "true";
+  const bypass = process.env.BYPASS_PRODUCT_VERIFICATION === "true";
 
   if (!apiUrl) {
     throw new Error("Missing required environment variable: API_URL");
@@ -45,7 +45,7 @@ export const env = async (): Promise<IEnvConfig> => {
       APP_IDENTIFIER: appIdentifier || "",
       RSA_PRIVATE_KEY: rsaPrivateKey || "",
       KEY_ID: keyId || "",
-      BYPASS_TENANT_VERIFICATION: bypass,
+      BYPASS_PRODUCT_VERIFICATION: bypass,
       COOKIES: {
         MAX_AGE_IN_DAYS: +(process.env.MAX_AGE_COOKIES_IN_DAYS || 7),
       },
