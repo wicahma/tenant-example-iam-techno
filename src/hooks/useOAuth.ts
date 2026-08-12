@@ -87,11 +87,11 @@ export const useOAuth = (): UseOAuthReturn => {
         const codeChallenge = await generateCodeChallenge(codeVerifier);
         const state = generateState();
 
-        // Store PKCE data (localStorage so popups/new tabs can read it)
         savePkce({
           codeVerifier,
           state,
           redirectUri: params.redirectUri,
+          clientId: params.clientId,
         });
 
         setOAuthState((s) => ({ ...s, codeVerifier, oauthState: state }));
@@ -146,7 +146,12 @@ export const useOAuth = (): UseOAuthReturn => {
           return;
         }
 
-        const { codeVerifier, state: storedState } = stored;
+        const {
+          codeVerifier,
+          state: storedState,
+          clientId,
+          redirectUri,
+        } = stored;
         if (returnedState !== storedState) {
           toast.error("State mismatch — possible CSRF attack");
           return;
@@ -158,7 +163,8 @@ export const useOAuth = (): UseOAuthReturn => {
           grant_type: "authorization_code",
           code,
           code_verifier: codeVerifier,
-          client_id: "", // Will be added by backend based on tenant
+          client_id: clientId ?? "",
+          redirect_uri: redirectUri,
         });
 
         if (data.status && data.data) {

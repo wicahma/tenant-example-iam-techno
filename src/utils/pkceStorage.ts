@@ -21,14 +21,20 @@ export interface PkceData {
 const STORAGE_KEY = "oauth_pkce";
 
 export const savePkce = (data: PkceData): void => {
-  const raw = JSON.stringify(data);
+  // The code_verifier is the credential-equivalent for the token exchange, so keep it
+  // OUT of localStorage (readable by any XSS). sessionStorage is cloned into a popup
+  // opened from this tab, so the callback page can still read the verifier.
+  const { codeVerifier, ...shared } = data;
   try {
-    localStorage.setItem(STORAGE_KEY, raw);
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...shared, codeVerifier }),
+    );
   } catch {
     // storage unavailable — ignore
   }
   try {
-    sessionStorage.setItem(STORAGE_KEY, raw);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(shared));
   } catch {
     // storage unavailable — ignore
   }
@@ -36,9 +42,16 @@ export const savePkce = (data: PkceData): void => {
 
 export const loadPkce = (): PkceData | null => {
   try {
-    const raw =
-      localStorage.getItem(STORAGE_KEY) ?? sessionStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as PkceData) : null;
+    const sessionRaw = sessionStorage.getItem(STORAGE_KEY);
+    const localRaw = localStorage.getItem(STORAGE_KEY);
+    if (!sessionRaw && !localRaw) return null;
+    // Prefer sessionStorage (holds the verifier); localStorage only carries state/redirectUri.
+    const parsed = JSON.parse(sessionRaw ?? localRaw!) as PkceData;
+    if (sessionRaw && localRaw) {
+      const local = JSON.parse(localRaw) as PkceData;
+      return { ...local, ...parsed };
+    }
+    return parsed;
   } catch {
     return null;
   }
