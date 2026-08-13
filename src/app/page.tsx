@@ -49,6 +49,13 @@ const endpointCards = [
     method: "GET/POST",
     path: "/public/oauth/*",
   },
+  {
+    title: "Access Token (ba-token)",
+    href: "/access-token",
+    desc: "Verify an encrypted product access token issued by the admin console. Quota enforcement demo.",
+    method: "POST",
+    path: "/public/access-token/verify",
+  },
 ];
 
 export default function HomePage() {
@@ -138,6 +145,7 @@ export default function HomePage() {
             "GET /public/oauth/userinfo",
             "GET /.well-known/openid-configuration",
             "POST /public/oauth/revoke",
+            "POST /public/access-token/verify",
           ].map((ep) => (
             <div key={ep} className="flex items-center gap-2 text-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-green-500" />

@@ -71,12 +71,14 @@ src/
 │   ├── user.service.ts        — getUsers (paginated)
 │   ├── password.service.ts    — change, reset send/validate/complete
 │   ├── oauth.service.ts       — authorize, token, userinfo, discovery, revoke
+│   ├── access-token.service.ts— ba-token verify
 │   └── health.service.ts      — healthCheck
 ├── hooks/                     — Client React hooks
 │   ├── useAuth.ts
 │   ├── useProfile.ts
 │   ├── useUsers.ts
 │   ├── usePasswordReset.ts    — Multi-step state machine
+│   ├── useAccessToken.ts      — ba-token verify state
 │   └── useOAuth.ts
 ├── components/
 │   ├── ui/                    — Button, Input, Card, Spinner, Badge, Select, Pagination, FormField
@@ -93,34 +95,47 @@ src/
     ├── reset-password/        — Step 1: Send reset
     │   ├── validate/          — Step 2: Validate OTP
     │   └── reset/             — Step 3: Set new password
+    ├── access-token/          — ba-token verify demo
     └── oauth-demo/            — OAuth flow launcher
         └── callback/          — OAuth callback handler
 ```
 
 ## API Endpoints Covered
 
-| #   | Method | Path                                | Feature              |
-| --- | ------ | ----------------------------------- | -------------------- |
-| 1   | GET    | `/public/health`                    | Health check         |
-| 2   | POST   | `/public/manual/login`              | Manual login         |
-| 3   | POST   | `/public/pre-token/claims`          | Pre-token exchange   |
-| 4   | POST   | `/public/oauth/login`               | OAuth login          |
-| 5   | POST   | `/public/logout`                    | Logout               |
-| 6   | POST   | `/public/me/refresh-token`          | Refresh token        |
-| 7   | POST   | `/public/validate-token`            | Validate token       |
-| 8   | GET    | `/public/me`                        | User detail          |
-| 9   | GET    | `/public/me/profile`                | User profile         |
-| 10  | PUT    | `/public/me`                        | Update profile       |
-| 11  | GET    | `/public/users`                     | User list            |
-| 12  | POST   | `/public/me/change-password`        | Change password      |
-| 13  | POST   | `/public/reset-password`            | Send reset           |
-| 14  | POST   | `/public/reset-password/validate`   | Validate OTP         |
-| 15  | POST   | `/public/reset-password/reset`      | Complete reset       |
-| 16  | GET    | `/oauth/authorize`                  | OAuth authorize      |
-| 17  | POST   | `/oauth/token`                      | OAuth token exchange |
-| 18  | GET    | `/oauth/userinfo`                   | OAuth userinfo       |
-| 19  | GET    | `/.well-known/openid-configuration` | OIDC Discovery       |
-| 20  | POST   | `/oauth/revoke`                     | OAuth revoke         |
+| #   | Method | Path                                | Feature                        |
+| --- | ------ | ----------------------------------- | ------------------------------ |
+| 1   | GET    | `/public/health`                    | Health check                   |
+| 2   | POST   | `/public/manual/login`              | Manual login                   |
+| 3   | POST   | `/public/pre-token/claims`          | Pre-token exchange             |
+| 4   | POST   | `/public/oauth/login`               | OAuth login                    |
+| 5   | POST   | `/public/logout`                    | Logout                         |
+| 6   | POST   | `/public/me/refresh-token`          | Refresh token                  |
+| 7   | POST   | `/public/validate-token`            | Validate token                 |
+| 8   | GET    | `/public/me`                        | User detail                    |
+| 9   | GET    | `/public/me/profile`                | User profile                   |
+| 10  | PUT    | `/public/me`                        | Update profile                 |
+| 11  | GET    | `/public/users`                     | User list                      |
+| 12  | POST   | `/public/me/change-password`        | Change password                |
+| 13  | POST   | `/public/reset-password`            | Send reset                     |
+| 14  | POST   | `/public/reset-password/validate`   | Validate OTP                   |
+| 15  | POST   | `/public/reset-password/reset`      | Complete reset                 |
+| 16  | GET    | `/oauth/authorize`                  | OAuth authorize                |
+| 17  | POST   | `/oauth/token`                      | OAuth token exchange           |
+| 18  | GET    | `/oauth/userinfo`                   | OAuth userinfo                 |
+| 19  | GET    | `/.well-known/openid-configuration` | OIDC Discovery                 |
+| 20  | POST   | `/oauth/revoke`                     | OAuth revoke                   |
+| 21  | POST   | `/public/access-token/verify`       | Access token (ba-token) verify |
+
+## Product Access Token (ba-token)
+
+Admin console can issue an **encrypted access token** (`ba-{encrypted-json}`) for an API product, scoped to a tenant, with a usage quota (`limit` per tenant→product). This example ships a demo page (`/access-token`) that calls `POST /public/access-token/verify` to validate a token and show the remaining quota.
+
+Payload inside the AES-encrypted JSON: `tenantId`, `productId`, `iat`, `exp`. Verification flow on the backend:
+
+1. Prefix `ba-` check → decrypt → expiry check
+2. Load tenant→product quota (limit)
+3. Queue-based decrement, usage persisted to DB + Redis (Redis fallback to DB)
+4. Return `{ valid, tenantId, productId, remaining, error? }`
 
 ## Product Verification
 
